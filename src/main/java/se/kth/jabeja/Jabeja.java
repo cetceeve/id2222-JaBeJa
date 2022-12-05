@@ -9,6 +9,7 @@ import se.kth.jabeja.rand.RandNoGenerator;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.lang.Math;
 
 public class Jabeja {
   final static Logger logger = Logger.getLogger(Jabeja.class);
@@ -67,17 +68,28 @@ public class Jabeja {
     if (config.getNodeSelectionPolicy() == NodeSelectionPolicy.HYBRID
             || config.getNodeSelectionPolicy() == NodeSelectionPolicy.LOCAL) {
       // swap with random neighbors
-      // TODO
+      Integer[] candidates = getNeighbors(nodep);
+      partner = findPartner(nodeId, candidates);
     }
 
     if (config.getNodeSelectionPolicy() == NodeSelectionPolicy.HYBRID
             || config.getNodeSelectionPolicy() == NodeSelectionPolicy.RANDOM) {
       // if local policy fails then randomly sample the entire graph
-      // TODO
+      if (partner == null) {
+        Integer[] candidates = getSample(nodeId);
+        partner = findPartner(nodeId, candidates);
+      }
     }
 
     // swap the colors
-    // TODO
+    if (partner != null) {
+      if (nodep.getColor() != partner.getColor()) {
+        int nodepColor = nodep.getColor();
+        nodep.setColor(partner.getColor());
+        partner.setColor(nodepColor);
+        numberOfSwaps++;
+      }
+    }
   }
 
   public Node findPartner(int nodeId, Integer[] nodes){
@@ -87,8 +99,23 @@ public class Jabeja {
     Node bestPartner = null;
     double highestBenefit = 0;
 
-    // TODO
+    for (int qId : nodes) {
+      Node nodeq = entireGraph.get(qId);
+      int degreePP = getDegree(nodep, nodep.getColor());
+      int degreeQQ = getDegree(nodeq, nodeq.getColor());
+      double oldBenefit = Math.pow(degreePP, config.getAlpha()) + Math.pow(degreeQQ, config.getAlpha());
 
+      int degreePQ = getDegree(nodep, nodeq.getColor());
+      int degreeQP = getDegree(nodeq, nodep.getColor());
+      double newBenefit = Math.pow(degreePQ, config.getAlpha()) + Math.pow(degreeQP, config.getAlpha());
+
+      boolean isBetterThenOld = newBenefit * T > oldBenefit;
+      boolean isNewHighest = newBenefit > highestBenefit;
+      if (isBetterThenOld && isNewHighest) {
+        bestPartner = nodeq;
+        highestBenefit = newBenefit;
+      }
+    }
     return bestPartner;
   }
 
