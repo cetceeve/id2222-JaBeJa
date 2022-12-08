@@ -19,6 +19,7 @@ public class Jabeja {
   private int numberOfSwaps;
   private int round;
   private float T;
+  private float TLastRound;
   private boolean resultFileCreated = false;
 
   //-------------------------------------------------------------------
@@ -29,6 +30,7 @@ public class Jabeja {
     this.numberOfSwaps = 0;
     this.config = config;
     this.T = config.getTemperature();
+    this.TLastRound = T;
   }
 
 
@@ -41,7 +43,8 @@ public class Jabeja {
 
       //one cycle for all nodes have completed.
       //reduce the temperature
-      saCoolDown();
+      //logger.info("T: " + T);
+      saCoolDownT2();
       report();
     }
   }
@@ -49,12 +52,27 @@ public class Jabeja {
   /**
    * Simulated analealing cooling function
    */
-  private void saCoolDown(){
-    // TODO for second task
-    if (T > 1)
+  private void saCoolDown() {
+    float roundsToConverge = (config.getTemperature() / config.getDelta()) * 1.1f;
+    if (T > 1) {
       T -= config.getDelta();
+    }
+    // if (round % roundsToConverge == 0) {
+    // T = config.getTemperature();
+    // }
     if (T < 1)
       T = 1;
+  }
+
+  private void saCoolDownT2(){
+    T = T * config.getDelta();
+    if (round % 60 == 0) {
+      T = TLastRound * 0.75f;
+      TLastRound = T;
+    }
+    if (T < 0.001) {
+      T = (float) 0.001;
+    }
   }
 
   /**
@@ -69,7 +87,7 @@ public class Jabeja {
             || config.getNodeSelectionPolicy() == NodeSelectionPolicy.LOCAL) {
       // swap with random neighbors
       Integer[] candidates = getNeighbors(nodep);
-      partner = findPartner(nodeId, candidates);
+      partner = findPartnerT2(nodeId, candidates);
     }
 
     if (config.getNodeSelectionPolicy() == NodeSelectionPolicy.HYBRID
@@ -77,7 +95,7 @@ public class Jabeja {
       // if local policy fails then randomly sample the entire graph
       if (partner == null) {
         Integer[] candidates = getSample(nodeId);
-        partner = findPartner(nodeId, candidates);
+        partner = findPartnerT2(nodeId, candidates);
       }
     }
 
@@ -112,6 +130,33 @@ public class Jabeja {
       boolean isBetterThenOld = newBenefit * T > oldBenefit;
       boolean isNewHighest = newBenefit > highestBenefit;
       if (isBetterThenOld && isNewHighest) {
+        bestPartner = nodeq;
+        highestBenefit = newBenefit;
+      }
+    }
+    return bestPartner;
+  }
+
+  public Node findPartnerT2(int nodeId, Integer[] nodes){
+
+    Node nodep = entireGraph.get(nodeId);
+
+    Node bestPartner = null;
+    double highestBenefit = 0;
+
+    for (int qId : nodes) {
+      Node nodeq = entireGraph.get(qId);
+      int degreePP = getDegree(nodep, nodep.getColor());
+      int degreeQQ = getDegree(nodeq, nodeq.getColor());
+      double oldBenefit = Math.pow(degreePP, config.getAlpha()) + Math.pow(degreeQQ, config.getAlpha());
+
+      int degreePQ = getDegree(nodep, nodeq.getColor());
+      int degreeQP = getDegree(nodeq, nodep.getColor());
+      double newBenefit = Math.pow(degreePQ, config.getAlpha()) + Math.pow(degreeQP, config.getAlpha());
+
+      double ap = Math.exp(((1/oldBenefit) - (1/newBenefit)) / T);
+      boolean isNewHighest = newBenefit > highestBenefit;
+      if (oldBenefit != newBenefit && ap > Math.random() && isNewHighest) {
         bestPartner = nodeq;
         highestBenefit = newBenefit;
       }
